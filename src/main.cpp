@@ -4,6 +4,7 @@
 #include <array>
 #include <type_traits>
 #include <vector>
+#include <random>
 
 #include <GL/glew.h>
 #include <GL/freeglut.h>
@@ -19,7 +20,7 @@ using namespace std;
 
 GLuint codColLocation, myMatrixLocation;
 
-glm::mat4 myMatrix, resizeMatrix;
+glm::mat4 myMatrix, resizeMatrix, starMatrix;
 
 int codCol;
 int width = 800, height = 600;
@@ -39,19 +40,45 @@ struct background_desc
     GLuint program_id = 0;
 } background;
 
-auto generate_star(glm::vec2 center, float const width, float const offset = 60.0f) -> std::array<float, 24>
+constexpr int num_stars = 500;
+constexpr int vertices_per_star = 6;
+constexpr int floats_per_star = 36;
+constexpr float star_scale_factor = 1.f / 20.f;
+
+auto generate_star(glm::vec2 center, float const width, float const offset = 60.0f)
+    -> std::array<float, floats_per_star>
 {
     // clang-format off
-    return std::array<float, 24>{ {
-        center.x - 200.0f, center.y + 200.0f - offset, 0.0f, 1.0f,
-        center.x,          center.y - 200.0f - offset, 0.0f, 1.0f,
-        center.x + 200.0f, center.y + 200.0f - offset, 0.0f, 1.0f,
+    return std::array<float, floats_per_star>{ {
+        center.x - 200.0f, center.y + 200.0f - offset, 0.0f, 1.0f, center.x, center.y,
+        center.x,          center.y - 200.0f - offset, 0.0f, 1.0f, center.x, center.y,
+        center.x + 200.0f, center.y + 200.0f - offset, 0.0f, 1.0f, center.x, center.y,
 
-        center.x - 200.0f, center.y - 200.0f + offset, 0.0f, 1.0f,
-        center.x,          center.y + 200.0f + offset, 0.0f, 1.0f,
-        center.x + 200.0f, center.y - 200.0f + offset, 0.0f, 1.0f,
+        center.x - 200.0f, center.y - 200.0f + offset, 0.0f, 1.0f, center.x, center.y,
+        center.x,          center.y + 200.0f + offset, 0.0f, 1.0f, center.x, center.y,
+        center.x + 200.0f, center.y - 200.0f + offset, 0.0f, 1.0f, center.x, center.y,
     } };
     // clang-format on
+}
+
+auto generate_background() -> std::vector<float>
+{
+    std::vector<float> result;
+    result.reserve(num_stars * floats_per_star);
+
+    std::mt19937 rng{ std::random_device{}() };
+    std::uniform_real_distribution<float> x{ -1000.0f, 1000.0f };
+    std::uniform_real_distribution<float> y{ -600.0f, 600.0f };
+
+    for(int i = 0; i < num_stars; ++i) {
+        auto star = generate_star(glm::vec2{ x(rng), y(rng) }, 200.0f);
+
+        for(auto const f : star) {
+            result.push_back(f);
+        }
+    }
+
+    return result;
 }
 
 auto create_vbo() -> void
@@ -140,10 +167,7 @@ auto create_vbo() -> void
     };
     // clang-format on
 
-    std::vector<float> background_verts{};
-
-    auto const some_star = generate_star(glm::vec2{ 0.0f, 0.0f }, 200.0f);
-    background_verts.insert(background_verts.end(), some_star.begin(), some_star.end());
+    std::vector<float> background_verts{ generate_background() };
 
     glGenVertexArrays(1, &spaceship.vao);
     glBindVertexArray(spaceship.vao);
@@ -171,11 +195,15 @@ auto create_vbo() -> void
     glBufferData(GL_ARRAY_BUFFER, background_verts.size() * sizeof(float), background_verts.data(), GL_STATIC_DRAW);
 
     glEnableVertexAttribArray(2);
-    glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, 0, 0);
+    glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, 6 * sizeof(float), 0);
+
+    glEnableVertexAttribArray(3);
+    glVertexAttribPointer(3, 2, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(4 * sizeof(float)));
 }
 
 auto destroy_vbo() -> void
 {
+    glDisableVertexAttribArray(3);
     glDisableVertexAttribArray(2);
     glDisableVertexAttribArray(1);
     glDisableVertexAttribArray(0);
@@ -205,7 +233,8 @@ auto destroy_shaders() -> void
 auto initialize() -> void
 {
     myMatrix = glm::mat4(1.0f);
-    resizeMatrix = glm::scale(glm::mat4(1.0f), glm::vec3(1.f / width, 1.f / height, 1.0));
+    resizeMatrix = glm::scale(glm::mat4(1.0f), glm::vec3(1.f / width, 1.f / height, 1.0f));
+    starMatrix = glm::scale(glm::mat4(1.0f), glm::vec3(star_scale_factor, star_scale_factor, 1.0f));
 
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     create_vbo();
@@ -217,6 +246,19 @@ auto render_function() -> void
     glClear(GL_COLOR_BUFFER_BIT);
 
     myMatrix = resizeMatrix;
+
+    glBindVertexArray(background.vao);
+    glUseProgram(background.program_id);
+
+    myMatrixLocation = glGetUniformLocation(background.program_id, "myMatrix");
+    glUniformMatrix4fv(myMatrixLocation, 1, GL_FALSE, &myMatrix[0][0]);
+
+    myMatrixLocation = glGetUniformLocation(background.program_id, "starMatrix");
+    glUniformMatrix4fv(myMatrixLocation, 1, GL_FALSE, &starMatrix[0][0]);
+
+    glDrawArrays(GL_TRIANGLES, 0, num_stars * vertices_per_star);
+
+    // SPACESHIP:
 
     glBindVertexArray(spaceship.vao);
     glUseProgram(spaceship.program_id);
@@ -237,14 +279,6 @@ auto render_function() -> void
     glDrawArrays(GL_POLYGON, 13, 4);
     glDrawArrays(GL_POLYGON, 17, 4);
     glDrawArrays(GL_POLYGON, 21, 4);
-
-    glBindVertexArray(background.vao);
-    glUseProgram(background.program_id);
-
-    myMatrixLocation = glGetUniformLocation(background.program_id, "myMatrix");
-    glUniformMatrix4fv(myMatrixLocation, 1, GL_FALSE, &myMatrix[0][0]);
-
-    glDrawArrays(GL_TRIANGLES, 0, 6);
 
     glutPostRedisplay();
     glFlush();
