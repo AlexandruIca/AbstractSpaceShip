@@ -4,7 +4,6 @@
 #include <GL/freeglut.h>
 #include <iostream>
 
-#include "GL/freeglut_std.h"
 #include "glm/glm.hpp"
 #include "glm/gtc/matrix_transform.hpp"
 #include "glm/gtx/transform.hpp"
@@ -14,7 +13,7 @@
 
 using namespace std;
 
-GLuint VaoId, codColLocation, myMatrixLocation;
+GLuint codColLocation, myMatrixLocation;
 
 glm::mat4 myMatrix, resizeMatrix;
 
@@ -23,10 +22,19 @@ int width = 800, height = 600;
 
 struct spaceship_desc
 {
+    GLuint vao = 0;
     GLuint vertex_buffer_id = 0;
     GLuint color_buffer_id = 0;
     GLuint program_id = 0;
 } spaceship;
+
+struct background_desc
+{
+    GLuint vao = 0;
+    GLuint vertex_buffer_id = 0;
+    GLuint index_buffer_id = 0;
+    GLuint program_id = 0;
+} background;
 
 auto create_vbo() -> void
 {
@@ -112,10 +120,21 @@ auto create_vbo() -> void
         1.0f, 1.0f, 1.0f, 1.0f,
         1.0f, 1.0f, 1.0f, 1.0f,
     };
+
+    GLfloat background_verts[] = {
+        -200.0f, 200.0f, 0.0f, 1.0f,
+        -200.0f,-200.0f, 0.0f, 1.0f,
+         200.0f,-200.0f, 0.0f, 1.0f,
+         200.0f, 200.0f, 0.0f, 1.0f,
+    };
+
+    GLuint background_indices[] = {
+        0, 1, 2, 2, 3, 0
+    };
     // clang-format on
 
-    glGenVertexArrays(1, &VaoId);
-    glBindVertexArray(VaoId);
+    glGenVertexArrays(1, &spaceship.vao);
+    glBindVertexArray(spaceship.vao);
 
     glGenBuffers(1, &spaceship.vertex_buffer_id);
     glBindBuffer(GL_ARRAY_BUFFER, spaceship.vertex_buffer_id);
@@ -130,10 +149,26 @@ auto create_vbo() -> void
 
     glEnableVertexAttribArray(1);
     glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, 0, 0);
+
+    // background
+    glGenVertexArrays(1, &background.vao);
+    glBindVertexArray(background.vao);
+
+    glGenBuffers(1, &background.vertex_buffer_id);
+    glBindBuffer(GL_ARRAY_BUFFER, background.vertex_buffer_id);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(background_verts), background_verts, GL_STATIC_DRAW);
+
+    glEnableVertexAttribArray(2);
+    glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, 0, 0);
+
+    glGenBuffers(1, &background.index_buffer_id);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, background.index_buffer_id);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(background_indices), background_indices, GL_STATIC_DRAW);
 }
 
 auto destroy_vbo() -> void
 {
+    glDisableVertexAttribArray(2);
     glDisableVertexAttribArray(1);
     glDisableVertexAttribArray(0);
 
@@ -141,19 +176,24 @@ auto destroy_vbo() -> void
     glDeleteBuffers(1, &spaceship.color_buffer_id);
     glDeleteBuffers(1, &spaceship.vertex_buffer_id);
 
+    glDeleteBuffers(1, &background.index_buffer_id);
+    glDeleteBuffers(1, &background.vertex_buffer_id);
+
     glBindVertexArray(0);
-    glDeleteVertexArrays(1, &VaoId);
+    glDeleteVertexArrays(1, &spaceship.vao);
+    glDeleteVertexArrays(1, &background.vao);
 }
 
 auto create_shaders() -> void
 {
     spaceship.program_id = load_shaders("spaceship_shader.vert", "spaceship_shader.frag");
-    glUseProgram(spaceship.program_id);
+    background.program_id = load_shaders("background_shader.vert", "background_shader.frag");
 }
 
 auto destroy_shaders() -> void
 {
     glDeleteProgram(spaceship.program_id);
+    glDeleteProgram(background.program_id);
 }
 
 auto initialize() -> void
@@ -172,6 +212,7 @@ auto render_function() -> void
 
     myMatrix = resizeMatrix;
 
+    glBindVertexArray(spaceship.vao);
     glUseProgram(spaceship.program_id);
 
     myMatrixLocation = glGetUniformLocation(spaceship.program_id, "myMatrix");
@@ -190,6 +231,15 @@ auto render_function() -> void
     glDrawArrays(GL_POLYGON, 13, 4);
     glDrawArrays(GL_POLYGON, 17, 4);
     glDrawArrays(GL_POLYGON, 21, 4);
+
+    glBindVertexArray(background.vao);
+    glUseProgram(background.program_id);
+
+    myMatrixLocation = glGetUniformLocation(background.program_id, "myMatrix");
+    glUniformMatrix4fv(myMatrixLocation, 1, GL_FALSE, &myMatrix[0][0]);
+
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, background.index_buffer_id);
+    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
 
     glutPostRedisplay();
     glFlush();
