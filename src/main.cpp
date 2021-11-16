@@ -1,8 +1,12 @@
-#include <stdlib.h>
-#include <stdio.h>
+#include <cstdlib>
+#include <cstdio>
+#include <iostream>
+#include <array>
+#include <type_traits>
+#include <vector>
+
 #include <GL/glew.h>
 #include <GL/freeglut.h>
-#include <iostream>
 
 #include "glm/glm.hpp"
 #include "glm/gtc/matrix_transform.hpp"
@@ -32,9 +36,23 @@ struct background_desc
 {
     GLuint vao = 0;
     GLuint vertex_buffer_id = 0;
-    GLuint index_buffer_id = 0;
     GLuint program_id = 0;
 } background;
+
+auto generate_star(glm::vec2 center, float const width, float const offset = 60.0f) -> std::array<float, 24>
+{
+    // clang-format off
+    return std::array<float, 24>{ {
+        center.x - 200.0f, center.y + 200.0f - offset, 0.0f, 1.0f,
+        center.x,          center.y - 200.0f - offset, 0.0f, 1.0f,
+        center.x + 200.0f, center.y + 200.0f - offset, 0.0f, 1.0f,
+
+        center.x - 200.0f, center.y - 200.0f + offset, 0.0f, 1.0f,
+        center.x,          center.y + 200.0f + offset, 0.0f, 1.0f,
+        center.x + 200.0f, center.y - 200.0f + offset, 0.0f, 1.0f,
+    } };
+    // clang-format on
+}
 
 auto create_vbo() -> void
 {
@@ -120,18 +138,12 @@ auto create_vbo() -> void
         1.0f, 1.0f, 1.0f, 1.0f,
         1.0f, 1.0f, 1.0f, 1.0f,
     };
-
-    GLfloat background_verts[] = {
-        -200.0f, 200.0f, 0.0f, 1.0f,
-        -200.0f,-200.0f, 0.0f, 1.0f,
-         200.0f,-200.0f, 0.0f, 1.0f,
-         200.0f, 200.0f, 0.0f, 1.0f,
-    };
-
-    GLuint background_indices[] = {
-        0, 1, 2, 2, 3, 0
-    };
     // clang-format on
+
+    std::vector<float> background_verts{};
+
+    auto const some_star = generate_star(glm::vec2{ 0.0f, 0.0f }, 200.0f);
+    background_verts.insert(background_verts.end(), some_star.begin(), some_star.end());
 
     glGenVertexArrays(1, &spaceship.vao);
     glBindVertexArray(spaceship.vao);
@@ -156,14 +168,10 @@ auto create_vbo() -> void
 
     glGenBuffers(1, &background.vertex_buffer_id);
     glBindBuffer(GL_ARRAY_BUFFER, background.vertex_buffer_id);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(background_verts), background_verts, GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, background_verts.size() * sizeof(float), background_verts.data(), GL_STATIC_DRAW);
 
     glEnableVertexAttribArray(2);
     glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, 0, 0);
-
-    glGenBuffers(1, &background.index_buffer_id);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, background.index_buffer_id);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(background_indices), background_indices, GL_STATIC_DRAW);
 }
 
 auto destroy_vbo() -> void
@@ -175,8 +183,6 @@ auto destroy_vbo() -> void
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glDeleteBuffers(1, &spaceship.color_buffer_id);
     glDeleteBuffers(1, &spaceship.vertex_buffer_id);
-
-    glDeleteBuffers(1, &background.index_buffer_id);
     glDeleteBuffers(1, &background.vertex_buffer_id);
 
     glBindVertexArray(0);
@@ -238,8 +244,7 @@ auto render_function() -> void
     myMatrixLocation = glGetUniformLocation(background.program_id, "myMatrix");
     glUniformMatrix4fv(myMatrixLocation, 1, GL_FALSE, &myMatrix[0][0]);
 
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, background.index_buffer_id);
-    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
 
     glutPostRedisplay();
     glFlush();
