@@ -241,9 +241,19 @@ auto initialize() -> void
     create_shaders();
 }
 
+float scalef = 1.0f;
+constexpr float scale_lower_limit = 0.8f;
+constexpr float scale_upper_limit = 1.2f;
+float scale_offset = 0.001f;
+
 auto render_function() -> void
 {
     glClear(GL_COLOR_BUFFER_BIT);
+    scalef += scale_offset;
+
+    if((scalef < scale_lower_limit) || (scalef > scale_upper_limit)) {
+        scale_offset = -scale_offset;
+    }
 
     myMatrix = resizeMatrix;
 
@@ -255,6 +265,9 @@ auto render_function() -> void
 
     myMatrixLocation = glGetUniformLocation(background.program_id, "starMatrix");
     glUniformMatrix4fv(myMatrixLocation, 1, GL_FALSE, &starMatrix[0][0]);
+
+    myMatrixLocation = glGetUniformLocation(background.program_id, "additionalScale");
+    glUniform1f(myMatrixLocation, scalef);
 
     glDrawArrays(GL_TRIANGLES, 0, num_stars * vertices_per_star);
 
