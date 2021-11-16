@@ -114,12 +114,12 @@ auto create_vbo() -> void
     };
     // clang-format on
 
+    glGenVertexArrays(1, &VaoId);
+    glBindVertexArray(VaoId);
+
     glGenBuffers(1, &spaceship.vertex_buffer_id);
     glBindBuffer(GL_ARRAY_BUFFER, spaceship.vertex_buffer_id);
     glBufferData(GL_ARRAY_BUFFER, sizeof(Vertices), Vertices, GL_STATIC_DRAW);
-
-    glGenVertexArrays(1, &VaoId);
-    glBindVertexArray(VaoId);
 
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 0, 0);
