@@ -6,6 +6,7 @@
 #include <vector>
 #include <random>
 #include <utility>
+#include <chrono>
 
 #include <GL/glew.h>
 #include <GL/freeglut.h>
@@ -264,20 +265,33 @@ auto initialize() -> void
     create_shaders();
 }
 
+using std::chrono::time_point;
+using std::chrono::steady_clock;
+using std::chrono::duration_cast;
+using std::chrono::duration;
+using std::chrono::seconds;
+
+time_point<steady_clock> start_time = steady_clock::now();
+
 float scalef = 1.0f;
 constexpr float scale_lower_limit = 0.8f;
 constexpr float scale_upper_limit = 1.2f;
-float scale_offset = 0.001f;
+float scale_offset = 0.5f;
 
 float translations[2] = { width * -4.0f, 0.0f };
-constexpr float translate_offset = 0.1f;
+constexpr float translate_offset = 250.0f;
 float const translation_threshold = 4.0f * width;
 
 auto render_function() -> void
 {
+    auto const end_time = steady_clock::now();
+    duration<float> elapsed = end_time - start_time;
+    start_time = end_time;
+    auto const duration = duration_cast<seconds>(elapsed).count();
+
     glClear(GL_COLOR_BUFFER_BIT);
 
-    scalef += scale_offset;
+    scalef = scalef + scale_offset * elapsed.count();
     if((scalef < scale_lower_limit) || (scalef > scale_upper_limit)) {
         scale_offset = -scale_offset;
     }
@@ -285,7 +299,7 @@ auto render_function() -> void
     myMatrix = resizeMatrix;
 
     for(int i = 0; i < 2; ++i) {
-        translations[i] += translate_offset;
+        translations[i] = translations[i] + translate_offset * elapsed.count();
         if(translations[i] >= translation_threshold) {
             translations[i] = -4.0f * width;
         }
