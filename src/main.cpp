@@ -246,9 +246,13 @@ constexpr float scale_lower_limit = 0.8f;
 constexpr float scale_upper_limit = 1.2f;
 float scale_offset = 0.001f;
 
+float translation = 0.0f;
+constexpr float translate_offset = 0.01f;
+
 auto render_function() -> void
 {
     glClear(GL_COLOR_BUFFER_BIT);
+    translation += translate_offset;
     scalef += scale_offset;
 
     if((scalef < scale_lower_limit) || (scalef > scale_upper_limit)) {
@@ -268,6 +272,9 @@ auto render_function() -> void
 
     myMatrixLocation = glGetUniformLocation(background.program_id, "additionalScale");
     glUniform1f(myMatrixLocation, scalef);
+
+    myMatrixLocation = glGetUniformLocation(background.program_id, "translate");
+    glUniform1f(myMatrixLocation, translation);
 
     glDrawArrays(GL_TRIANGLES, 0, num_stars * vertices_per_star);
 

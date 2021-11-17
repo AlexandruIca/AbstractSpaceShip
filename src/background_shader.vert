@@ -7,6 +7,7 @@ out vec4 ex_Color;
 uniform mat4 myMatrix;
 uniform mat4 starMatrix;
 uniform float additionalScale;
+uniform float translate;
  
 void main(void)
 {
@@ -16,6 +17,6 @@ void main(void)
     at_center.y *= additionalScale;
     at_center = vec4(at_center.xy + in_Center.xy, at_center.zw);
 
-    gl_Position = myMatrix * at_center;
+    gl_Position = myMatrix * (at_center + vec4(translate, 0.0, 0.0, 0.0));
     ex_Color = vec4(1.0);
 } 
