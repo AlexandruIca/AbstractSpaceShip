@@ -5,6 +5,7 @@
 #include <type_traits>
 #include <vector>
 #include <random>
+#include <utility>
 
 #include <GL/glew.h>
 #include <GL/freeglut.h>
@@ -38,7 +39,7 @@ struct background_desc
     GLuint vao = 0;
     GLuint vertex_buffer_id = 0;
     GLuint program_id = 0;
-} background;
+} background[2];
 
 constexpr int num_stars = 500;
 constexpr int vertices_per_star = 6;
@@ -61,20 +62,26 @@ auto generate_star(glm::vec2 center, float const width, float const offset = 60.
     // clang-format on
 }
 
-auto generate_background() -> std::vector<float>
+auto generate_background() -> std::pair<std::vector<float>, std::vector<float>>
 {
-    std::vector<float> result;
-    result.reserve(num_stars * floats_per_star);
+    std::pair<std::vector<float>, std::vector<float>> result;
+    result.first.reserve(num_stars * floats_per_star);
+    result.second.reserve(num_stars * floats_per_star);
 
     std::mt19937 rng{ std::random_device{}() };
-    std::uniform_real_distribution<float> x{ -1000.0f, 1000.0f };
-    std::uniform_real_distribution<float> y{ -600.0f, 600.0f };
+    std::uniform_real_distribution<float> x{ width * -2.0f, width * 2.0f };
+    std::uniform_real_distribution<float> y{ height * -1.0f, height * 1.0f };
 
     for(int i = 0; i < num_stars; ++i) {
         auto star = generate_star(glm::vec2{ x(rng), y(rng) }, 200.0f);
 
         for(auto const f : star) {
-            result.push_back(f);
+            result.second.push_back(f);
+        }
+
+        star = generate_star(glm::vec2{ x(rng), y(rng) }, 200.0f);
+        for(auto const f : star) {
+            result.first.push_back(f);
         }
     }
 
@@ -167,8 +174,6 @@ auto create_vbo() -> void
     };
     // clang-format on
 
-    std::vector<float> background_verts{ generate_background() };
-
     glGenVertexArrays(1, &spaceship.vao);
     glBindVertexArray(spaceship.vao);
 
@@ -187,12 +192,29 @@ auto create_vbo() -> void
     glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, 0, 0);
 
     // background
-    glGenVertexArrays(1, &background.vao);
-    glBindVertexArray(background.vao);
+    auto const [left_background_verts, right_background_verts] = generate_background();
 
-    glGenBuffers(1, &background.vertex_buffer_id);
-    glBindBuffer(GL_ARRAY_BUFFER, background.vertex_buffer_id);
-    glBufferData(GL_ARRAY_BUFFER, background_verts.size() * sizeof(float), background_verts.data(), GL_STATIC_DRAW);
+    glGenVertexArrays(1, &background[0].vao);
+    glBindVertexArray(background[0].vao);
+
+    glGenBuffers(1, &background[0].vertex_buffer_id);
+    glBindBuffer(GL_ARRAY_BUFFER, background[0].vertex_buffer_id);
+    glBufferData(
+        GL_ARRAY_BUFFER, right_background_verts.size() * sizeof(float), right_background_verts.data(), GL_STATIC_DRAW);
+
+    glEnableVertexAttribArray(2);
+    glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, 6 * sizeof(float), 0);
+
+    glEnableVertexAttribArray(3);
+    glVertexAttribPointer(3, 2, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(4 * sizeof(float)));
+
+    glGenVertexArrays(1, &background[1].vao);
+    glBindVertexArray(background[1].vao);
+
+    glGenBuffers(1, &background[1].vertex_buffer_id);
+    glBindBuffer(GL_ARRAY_BUFFER, background[1].vertex_buffer_id);
+    glBufferData(
+        GL_ARRAY_BUFFER, left_background_verts.size() * sizeof(float), left_background_verts.data(), GL_STATIC_DRAW);
 
     glEnableVertexAttribArray(2);
     glVertexAttribPointer(2, 4, GL_FLOAT, GL_FALSE, 6 * sizeof(float), 0);
@@ -211,23 +233,24 @@ auto destroy_vbo() -> void
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glDeleteBuffers(1, &spaceship.color_buffer_id);
     glDeleteBuffers(1, &spaceship.vertex_buffer_id);
-    glDeleteBuffers(1, &background.vertex_buffer_id);
+    glDeleteBuffers(1, &background[0].vertex_buffer_id);
 
     glBindVertexArray(0);
     glDeleteVertexArrays(1, &spaceship.vao);
-    glDeleteVertexArrays(1, &background.vao);
+    glDeleteVertexArrays(1, &background[0].vao);
 }
 
 auto create_shaders() -> void
 {
     spaceship.program_id = load_shaders("spaceship_shader.vert", "spaceship_shader.frag");
-    background.program_id = load_shaders("background_shader.vert", "background_shader.frag");
+    background[0].program_id = load_shaders("background_shader.vert", "background_shader.frag");
+    background[1].program_id = background[0].program_id;
 }
 
 auto destroy_shaders() -> void
 {
     glDeleteProgram(spaceship.program_id);
-    glDeleteProgram(background.program_id);
+    glDeleteProgram(background[0].program_id);
 }
 
 auto initialize() -> void
@@ -246,37 +269,44 @@ constexpr float scale_lower_limit = 0.8f;
 constexpr float scale_upper_limit = 1.2f;
 float scale_offset = 0.001f;
 
-float translation = 0.0f;
-constexpr float translate_offset = 0.01f;
+float translations[2] = { width * -4.0f, 0.0f };
+constexpr float translate_offset = 0.1f;
+float const translation_threshold = 4.0f * width;
 
 auto render_function() -> void
 {
     glClear(GL_COLOR_BUFFER_BIT);
-    translation += translate_offset;
-    scalef += scale_offset;
 
+    scalef += scale_offset;
     if((scalef < scale_lower_limit) || (scalef > scale_upper_limit)) {
         scale_offset = -scale_offset;
     }
 
     myMatrix = resizeMatrix;
 
-    glBindVertexArray(background.vao);
-    glUseProgram(background.program_id);
+    for(int i = 0; i < 2; ++i) {
+        translations[i] += translate_offset;
+        if(translations[i] >= translation_threshold) {
+            translations[i] = -4.0f * width;
+        }
 
-    myMatrixLocation = glGetUniformLocation(background.program_id, "myMatrix");
-    glUniformMatrix4fv(myMatrixLocation, 1, GL_FALSE, &myMatrix[0][0]);
+        glBindVertexArray(background[i].vao);
+        glUseProgram(background[i].program_id);
 
-    myMatrixLocation = glGetUniformLocation(background.program_id, "starMatrix");
-    glUniformMatrix4fv(myMatrixLocation, 1, GL_FALSE, &starMatrix[0][0]);
+        myMatrixLocation = glGetUniformLocation(background[i].program_id, "myMatrix");
+        glUniformMatrix4fv(myMatrixLocation, 1, GL_FALSE, &myMatrix[0][0]);
 
-    myMatrixLocation = glGetUniformLocation(background.program_id, "additionalScale");
-    glUniform1f(myMatrixLocation, scalef);
+        myMatrixLocation = glGetUniformLocation(background[i].program_id, "starMatrix");
+        glUniformMatrix4fv(myMatrixLocation, 1, GL_FALSE, &starMatrix[0][0]);
 
-    myMatrixLocation = glGetUniformLocation(background.program_id, "translate");
-    glUniform1f(myMatrixLocation, translation);
+        myMatrixLocation = glGetUniformLocation(background[i].program_id, "additionalScale");
+        glUniform1f(myMatrixLocation, scalef);
 
-    glDrawArrays(GL_TRIANGLES, 0, num_stars * vertices_per_star);
+        myMatrixLocation = glGetUniformLocation(background[i].program_id, "translate");
+        glUniform1f(myMatrixLocation, translations[i]);
+
+        glDrawArrays(GL_TRIANGLES, 0, num_stars * vertices_per_star);
+    }
 
     // SPACESHIP:
 
