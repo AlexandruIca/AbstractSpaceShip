@@ -18,6 +18,9 @@
 
 #include "load_shaders.hpp"
 
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_loader.h"
+
 using namespace std;
 
 GLuint codColLocation, myMatrixLocation;
@@ -34,6 +37,14 @@ struct spaceship_desc
     GLuint color_buffer_id = 0;
     GLuint program_id = 0;
 } spaceship;
+
+struct flames_desc
+{
+    GLuint vao = 0;
+    GLuint vertex_buffer_id = 0;
+    GLuint texture = 0;
+    GLuint program_id = 0;
+} flame;
 
 struct background_desc
 {
@@ -192,6 +203,59 @@ auto create_vbo() -> void
     glEnableVertexAttribArray(1);
     glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, 0, 0);
 
+    GLfloat Vertices_Flame[] = {
+        //spaceship flame
+            -275.0f, 20.0f, 0.0f, 1.0f, 0.0f, 0.0f,
+            -200.0f, 20.0f, 0.0f, 1.0f, 1.0f, 0.0f,
+            -200.0f, 70.0f, 0.0f, 1.0f, 1.0f, 1.0f,
+
+             -200.0f, 70.0f, 0.0f, 1.0f, 1.0f, 1.0f,
+            -275.0f, 70.0f, 0.0f, 1.0f, 0.0f, 1.0f,
+             -275.0f, 20.0f, 0.0f, 1.0f, 0.0f, 0.0f,
+    };
+   
+    glEnable(GL_TEXTURE_2D);
+
+    glGenTextures(1, &flame.texture);
+    glBindTexture(GL_TEXTURE_2D, flame.texture);
+    // set the texture wrapping/filtering options (on the currently bound texture object)
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+
+    int flame_width, flame_height, nrChannels;
+    unsigned char* data = stbi_load("RocketFlames.png", &flame_width, &flame_height, &nrChannels, 0);
+
+    cout << nrChannels;
+    if (data)
+    {
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, flame_width, flame_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+        //glGenerateMipmap(GL_TEXTURE_2D);
+    }
+    else
+    {
+        std::cout << "Failed to load texture" << std::endl;
+    }
+    stbi_image_free(data);
+
+    
+    glGenVertexArrays(1, &flame.vao);
+    glBindVertexArray(flame.vao);
+
+    glGenBuffers(1, &flame.vertex_buffer_id);
+    glBindBuffer(GL_ARRAY_BUFFER, flame.vertex_buffer_id);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(Vertices_Flame), Vertices_Flame, GL_STATIC_DRAW);
+
+    
+    glVertexAttribPointer(10, 4, GL_FLOAT, GL_FALSE, 6 * sizeof(float), 0);
+    glEnableVertexAttribArray(10);
+
+    
+    glVertexAttribPointer(11, 2, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(4 * sizeof(float)));
+    glEnableVertexAttribArray(11);
+
     // background
     auto const [left_background_verts, right_background_verts] = generate_background();
 
@@ -230,15 +294,19 @@ auto destroy_vbo() -> void
     glDisableVertexAttribArray(2);
     glDisableVertexAttribArray(1);
     glDisableVertexAttribArray(0);
+    glDisableVertexAttribArray(10);
+    glDisableVertexAttribArray(11);
 
     glBindBuffer(GL_ARRAY_BUFFER, 0);
     glDeleteBuffers(1, &spaceship.color_buffer_id);
     glDeleteBuffers(1, &spaceship.vertex_buffer_id);
     glDeleteBuffers(1, &background[0].vertex_buffer_id);
+    glDeleteBuffers(1, &flame.vertex_buffer_id);
 
     glBindVertexArray(0);
     glDeleteVertexArrays(1, &spaceship.vao);
     glDeleteVertexArrays(1, &background[0].vao);
+    glDeleteVertexArrays(1, &flame.vao);
 }
 
 auto create_shaders() -> void
@@ -246,12 +314,14 @@ auto create_shaders() -> void
     spaceship.program_id = load_shaders("spaceship_shader.vert", "spaceship_shader.frag");
     background[0].program_id = load_shaders("background_shader.vert", "background_shader.frag");
     background[1].program_id = background[0].program_id;
+    flame.program_id = load_shaders("flames_shader.vert", "flames_shader.frag");
 }
 
 auto destroy_shaders() -> void
 {
     glDeleteProgram(spaceship.program_id);
     glDeleteProgram(background[0].program_id);
+    glDeleteProgram(flame.program_id);
 }
 
 auto initialize() -> void
@@ -343,6 +413,19 @@ auto render_function() -> void
     glDrawArrays(GL_POLYGON, 13, 4);
     glDrawArrays(GL_POLYGON, 17, 4);
     glDrawArrays(GL_POLYGON, 21, 4);
+    //glDrawArrays(GL_TRIANGLES, 25, 6);
+
+   
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, flame.texture);
+    
+    glBindVertexArray(flame.vao);
+    glUseProgram(flame.program_id);
+
+    glUniform1i(glGetUniformLocation(flame.program_id, "ourTexture"), 0);
+
+    glDrawArrays(GL_TRIANGLES, 0, 6);
 
     glutPostRedisplay();
     glFlush();
