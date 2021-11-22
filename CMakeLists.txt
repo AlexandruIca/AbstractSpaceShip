@@ -36,3 +36,8 @@ copy_file(spaceship_shader.frag ${CMAKE_PROJECT_NAME})
 
 copy_file(background_shader.vert ${CMAKE_PROJECT_NAME})
 copy_file(background_shader.frag ${CMAKE_PROJECT_NAME})
+
+copy_file(flames_shader.vert ${CMAKE_PROJECT_NAME})
+copy_file(flames_shader.frag ${CMAKE_PROJECT_NAME})
+
+copy_file(RocketFlames.png ${CMAKE_PROJECT_NAME})
