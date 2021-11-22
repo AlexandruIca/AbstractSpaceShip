@@ -21,8 +21,6 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_loader.h"
 
-using namespace std;
-
 GLuint codColLocation, myMatrixLocation;
 
 glm::mat4 myMatrix, resizeMatrix, starMatrix;
@@ -204,16 +202,14 @@ auto create_vbo() -> void
     glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, 0, 0);
 
     GLfloat Vertices_Flame[] = {
-        //spaceship flame
-            -275.0f, 20.0f, 0.0f, 1.0f, 0.0f, 0.0f,
-            -200.0f, 20.0f, 0.0f, 1.0f, 1.0f, 0.0f,
-            -200.0f, 70.0f, 0.0f, 1.0f, 1.0f, 1.0f,
+        // spaceship flame
+        -275.0f, 20.0f, 0.0f, 1.0f,    0.0f,  0.0f, -200.0f, 20.0f, 0.0f,
+        1.0f,    1.0f,  0.0f, -200.0f, 70.0f, 0.0f, 1.0f,    1.0f,  1.0f,
 
-             -200.0f, 70.0f, 0.0f, 1.0f, 1.0f, 1.0f,
-            -275.0f, 70.0f, 0.0f, 1.0f, 0.0f, 1.0f,
-             -275.0f, 20.0f, 0.0f, 1.0f, 0.0f, 0.0f,
+        -200.0f, 70.0f, 0.0f, 1.0f,    1.0f,  1.0f, -275.0f, 70.0f, 0.0f,
+        1.0f,    0.0f,  1.0f, -275.0f, 20.0f, 0.0f, 1.0f,    0.0f,  0.0f,
     };
-   
+
     glEnable(GL_TEXTURE_2D);
 
     glGenTextures(1, &flame.texture);
@@ -224,23 +220,19 @@ auto create_vbo() -> void
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-
     int flame_width, flame_height, nrChannels;
     unsigned char* data = stbi_load("RocketFlames.png", &flame_width, &flame_height, &nrChannels, 0);
 
-    cout << nrChannels;
-    if (data)
-    {
+    std::cout << nrChannels;
+    if(data) {
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, flame_width, flame_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
-        //glGenerateMipmap(GL_TEXTURE_2D);
+        // glGenerateMipmap(GL_TEXTURE_2D);
     }
-    else
-    {
+    else {
         std::cout << "Failed to load texture" << std::endl;
     }
     stbi_image_free(data);
 
-    
     glGenVertexArrays(1, &flame.vao);
     glBindVertexArray(flame.vao);
 
@@ -248,11 +240,9 @@ auto create_vbo() -> void
     glBindBuffer(GL_ARRAY_BUFFER, flame.vertex_buffer_id);
     glBufferData(GL_ARRAY_BUFFER, sizeof(Vertices_Flame), Vertices_Flame, GL_STATIC_DRAW);
 
-    
     glVertexAttribPointer(10, 4, GL_FLOAT, GL_FALSE, 6 * sizeof(float), 0);
     glEnableVertexAttribArray(10);
 
-    
     glVertexAttribPointer(11, 2, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(4 * sizeof(float)));
     glEnableVertexAttribArray(11);
 
@@ -413,13 +403,11 @@ auto render_function() -> void
     glDrawArrays(GL_POLYGON, 13, 4);
     glDrawArrays(GL_POLYGON, 17, 4);
     glDrawArrays(GL_POLYGON, 21, 4);
-    //glDrawArrays(GL_TRIANGLES, 25, 6);
-
-   
+    // glDrawArrays(GL_TRIANGLES, 25, 6);
 
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, flame.texture);
-    
+
     glBindVertexArray(flame.vao);
     glUseProgram(flame.program_id);
 
